@@ -240,7 +240,7 @@
                 </div>
             </section>
 
-            <!-- 2. HOLERITES (COLABORADOR) - Única Via Limpa -->
+            <!-- 2. HOLERITES (COLABORADOR) - Via Única Limpa -->
             <section id="tab-holerites" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
                 <div class="lg:col-span-4 glass-card rounded-3xl p-6 space-y-4 no-print">
                     <h3 class="text-base font-bold text-white flex items-center space-x-2">
@@ -759,7 +759,7 @@
             reader.readAsArrayBuffer(file);
         }
 
-        // Upload de Lote de Holerites em PDF (Lendo a primeira via de cada página duplicada)
+        // Upload de Lote de Holerites em PDF (Compatível com CPFs com ou sem máscara)
         async function processarLoteHoleritesPDF() {
             const fileInput = document.getElementById('pdf-lote-holerites');
             if (!fileInput.files.length) { alert('Selecione um PDF.'); return; }
@@ -778,22 +778,30 @@
                         const textContent = await page.getTextContent();
                         const text = textContent.items.map(item => item.str).join(' ');
 
-                        const matchCpf = text.match(/\d{3}\.\d{3}\.\d{3}-\d{2}/);
-                        if (matchCpf) {
-                            const cpfEncontrado = matchCpf[0];
-                            let usuarioAlvo = db.usuarios.find(u => u.cpf === cpfEncontrado);
-                            if (usuarioAlvo) {
-                                // Evita duplicar holerite idêntico para a mesma competência
-                                let jaExiste = db.holerites.find(h => h.cpf === cpfEncontrado && h.competencia === "Agosto / 2026");
-                                if (!jaExiste) {
-                                    db.holerites.push({
-                                        id: Date.now() + Math.random(),
-                                        cpf: cpfEncontrado,
-                                        competencia: "Agosto / 2026",
-                                        liquido: "R$ 2.169,39"
-                                    });
-                                    distribuidos++;
+                        const matchCpfDigits = text.match(/\d{11}/g);
+                        let cpfEncontrado = null;
+
+                        if (matchCpfDigits) {
+                            for (let digits of matchCpfDigits) {
+                                let cpfFormatado = digits.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+                                let usuarioAlvo = db.usuarios.find(u => u.cpf === cpfFormatado || u.cpf.replace(/[^\d]/g, '') === digits);
+                                if (usuarioAlvo) {
+                                    cpfEncontrado = usuarioAlvo.cpf;
+                                    break;
                                 }
+                            }
+                        }
+
+                        if (cpfEncontrado) {
+                            let jaExiste = db.holerites.find(h => h.cpf === cpfEncontrado && h.competencia === "Agosto / 2026");
+                            if (!jaExiste) {
+                                db.holerites.push({
+                                    id: Date.now() + Math.random(),
+                                    cpf: cpfEncontrado,
+                                    competencia: "Agosto / 2026",
+                                    liquido: "R$ 2.169,39"
+                                });
+                                distribuidos++;
                             }
                         }
                     }
