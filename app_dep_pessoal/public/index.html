@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>App Departamento Pessoal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-center p-4">
+
+    <!-- TELA DE LOGIN -->
+    <div id="tela-login" class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md">
+        <h1 class="text-2xl font-bold text-slate-800 mb-6 text-center">Departamento Pessoal</h1>
+        <form id="form-login" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">CPF</label>
+                <input type="text" id="login-cpf" placeholder="Digite com ou sem pontos" required
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-600 mb-1">Senha</label>
+                <input type="password" id="login-senha" placeholder="******" required
+                    class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+            </div>
+            <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg transition">
+                Entrar
+            </button>
+        </form>
+        
+        <!-- Área para importar planilha inicial direto pela tela se desejar -->
+        <div class="mt-8 border-t pt-4">
+            <p class="text-xs text-slate-500 mb-2">Painel Inicial: Importar Planilha Excel (.xlsx)</p>
+            <input type="file" id="input-excel" accept=".xlsx" class="text-xs mb-2 w-full">
+            <button onclick="enviarPlanilha()" class="w-full bg-slate-800 hover:bg-slate-900 text-white text-xs py-2 rounded transition">
+                Importar Lote de Colaboradores
+            </button>
+        </div>
+    </div>
+
+    <!-- PAINEL DO COLABORADOR -->
+    <div id="tela-painel" class="hidden bg-white p-8 rounded-2xl shadow-xl w-full max-w-2xl">
+        <div class="flex items-center justify-between border-b pb-4 mb-6">
+            <div class="flex items-center space-x-4">
+                <img id="perfil-foto" src="https://via.placeholder.com/80" alt="Foto" class="w-16 h-16 rounded-full object-cover border-2 border-blue-500">
+                <div>
+                    <h2 id="perfil-nome" class="text-xl font-bold text-slate-800">Nome do Colaborador</h2>
+                    <p id="perfil-funcao" class="text-sm text-slate-500">Função</p>
+                </div>
+            </div>
+            <button onclick="logout()" class="text-red-500 hover:underline text-sm font-medium">Sair</button>
+        </div>
+
+        <!-- Alterar Foto -->
+        <div class="mb-6 bg-slate-50 p-4 rounded-lg">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Alterar Foto de Perfil</label>
+            <input type="file" id="nova-foto" accept="image/*" class="text-sm mb-2">
+            <button onclick="atualizarFoto()" class="bg-blue-600 text-white text-xs px-4 py-2 rounded hover:bg-blue-700">Enviar Foto</button>
+        </div>
+
+        <!-- PAINEL EXCLUSIVO DO ADMIN -->
+        <div id="secao-admin" class="hidden border-t pt-4">
+            <h3 class="text-lg font-bold text-slate-800 mb-3">Painel do Administrador (Cadastros e Senhas)</h3>
+            <div class="overflow-x-auto max-h-60 border rounded">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-slate-200 sticky top-0">
+                        <tr>
+                            <th class="p-2">CPF</th>
+                            <th class="p-2">Nome</th>
+                            <th class="p-2">Função</th>
+                            <th class="p-2">Senha</th>
+                            <th class="p-2">Ação</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabela-admin-corpo">
+                        <!-- Preenchido via JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Máscara dinâmica para o CPF na digitação do login
+        const inputCpf = document.getElementById('login-cpf');
+        inputCpf.addEventListener('input', (e) => {
+            let valor = e.target.value.replace(/\D/g, "").slice(0, 11);
+            if (valor.length > 9) {
+                valor = valor.replace(/(\d{3})(\d{3})(\d{3})(\d{1,2})/, "$1.$2.$3-$4");
+            } else if (valor.length > 6) {
+                valor = valor.replace(/(\d{3})(\d{3})(\d{1,3})/, "$1.$2.$3");
+            } else if (valor.length > 3) {
+                valor = valor.replace(/(\d{3})(\d{1,3})/, "$1.$2");
+            }
+            e.target.value = valor;
+        });
+
+        let usuarioLogado = null;
+
+        // Login
+        document.getElementById('form-login').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const cpf = inputCpf.value;
+            const senha = document.getElementById('login-senha').value;
+
+            const res = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ cpf, senha })
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                usuarioLogado = data.usuario;
+                carregarPainel();
+            } else {
+                alert(data.erro);
+            }
+        });
+
+        function carregarPainel() {
+            document.getElementById('tela-login').classList.add('hidden');
+            document.getElementById('tela-painel').classList.remove('hidden');
+
+            document.getElementById('perfil-nome').innerText = usuarioLogado.nome;
+            document.getElementById('perfil-funcao').innerText = usuarioLogado.funcao;
+            if (usuarioLogado.foto) {
+                document.getElementById('perfil-foto').src = usuarioLogado.foto;
+            }
+
+            if (usuarioLogado.is_admin === 1) {
+                document.getElementById('secao-admin').classList.remove('hidden');
+                carregarDadosAdmin();
+            }
+        }
+
+        async function carregarDadosAdmin() {
+            const res = await fetch('/api/admin/colaboradores');
+            const colaboradores = await res.json();
+            const corpo = document.getElementById('tabela-admin-corpo');
+            corpo.innerHTML = '';
+
+            colaboradores.forEach(c => {
+                corpo.innerHTML += `
+                    <tr class="border-b">
+                        <td class="p-2">${c.cpf}</td>
+                        <td class="p-2">${c.nome}</td>
+                        <td class="p-2">${c.funcao}</td>
+                        <td class="p-2 font-mono font-bold text-blue-600">${c.senha}</td>
+                        <td class="p-2">
+                            <button onclick="resetarSenha(${c.id})" class="bg-amber-500 text-white px-2 py-1 rounded text-[10px]">Resetar Senha</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function resetarSenha(id) {
+            const novaSenha = prompt("Digite a nova senha temporária:");
+            if (!novaSenha) return;
+
+            const res = await fetch('/api/admin/resetar-senha', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, novaSenha })
+            });
+            const data = await res.json();
+            alert(data.mensagem);
+            carregarDadosAdmin();
+        }
+
+        async function atualizarFoto() {
+            const inputFoto = document.getElementById('nova-foto');
+            if (!inputFoto.files[0]) return alert('Selecione uma imagem.');
+
+            const formData = new FormData();
+            formData.append('foto', inputFoto.files[0]);
+            formData.append('id', usuarioLogado.id);
+
+            const res = await fetch('/api/usuario/foto', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (res.ok) {
+                usuarioLogado.foto = data.foto;
+                document.getElementById('perfil-foto').src = data.foto;
+                alert('Foto atualizada com sucesso!');
+            } else {
+                alert(data.erro);
+            }
+        }
+
+        async function enviarPlanilha() {
+            const arquivoInput = document.getElementById('input-excel');
+            if (!arquivoInput.files[0]) return alert('Selecione o arquivo APP_DEP_PESSOAL.xlsx');
+
+            const formData = new FormData();
+            formData.append('arquivoExcel', arquivoInput.files[0]);
+
+            const res = await fetch('/api/importar-lote', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            alert(data.mensagem);
+        }
+
+        function logout() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

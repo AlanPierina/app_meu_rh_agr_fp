@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meu RH - Agrícola Fp | Portal do Colaborador & Gestão</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js para Gráficos -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS (XLSX) para ler planilhas -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- PDF.js para leitura e divisão de arquivos PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        agrGreen: {
+                            50: '#f0fdf4',
+                            100: '#dcfce7',
+                            500: '#22c55e',
+                            600: '#16a34a', 
+                            700: '#15803d',
+                            800: '#166534',
+                            900: '#14532d',
+                            950: '#052e16'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(34, 197, 94, 0.15);
+        }
+        .glass-card:hover {
+            border-color: rgba(34, 197, 94, 0.4);
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.1);
+        }
+        .glass-modal {
+            background: rgba(10, 15, 30, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+        }
+        @media print {
+            body * { visibility: hidden; }
+            #printable-area, #printable-area * { visibility: visible; }
+            #printable-area { position: absolute; left: 0; top: 0; width: 100%; }
+            .no-print { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col selection:bg-agrGreen-500 selection:text-white">
+
+    <!-- ================= TELA DE LOGIN ================= -->
+    <div id="auth-screen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4">
+        <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-agrGreen-950/30 via-slate-950 to-slate-950 pointer-events-none"></div>
+        <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-md w-full shadow-2xl space-y-6 relative z-10 transition-all duration-300">
+            <div class="text-center space-y-3">
+                <div class="bg-gradient-to-br from-agrGreen-500 to-agrGreen-700 text-white w-16 h-16 rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-agrGreen-600/40 text-2xl font-bold transition-transform duration-300 hover:scale-105">
+                    <i class="fa-solid fa-seedling"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight text-white">Meu RH</h1>
+                    <p class="text-xs font-semibold text-agrGreen-400 uppercase tracking-widest mt-0.5">Agrícola Fp</p>
+                </div>
+                <p class="text-xs text-slate-400">Insira seu CPF e senha para acessar o portal</p>
+            </div>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">CPF</label>
+                    <input type="text" id="login-cpf" oninput="mascaraCPF(this)" placeholder="000.000.000-00" maxlength="14" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Senha</label>
+                    <input type="password" id="login-senha" placeholder="••••••••" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                </div>
+                <button type="submit" class="w-full bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 hover:from-agrGreen-500 hover:to-agrGreen-600 text-white font-semibold py-3 rounded-xl transition-all duration-300 shadow-lg shadow-agrGreen-600/30 hover:shadow-agrGreen-600/50 active:scale-[0.99]">Entrar no Sistema</button>
+            </form>
+            <div class="text-center text-xs text-slate-500">
+                Acesso restrito a colaboradores e administração autorizada.
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= MODAL DE PRIMEIRO ACESSO ================= -->
+    <div id="first-access-modal" class="hidden fixed inset-0 glass-modal z-50 flex items-center justify-center p-4 overflow-y-auto">
+        <div class="glass-card p-6 sm:p-8 rounded-3xl max-w-xl w-full shadow-2xl space-y-6 my-auto border-agrGreen-500/30">
+            <div class="border-b border-slate-800 pb-4">
+                <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-amber-500/25">Primeiro Acesso Detectado</span>
+                <h3 class="text-xl font-bold text-white mt-2">Atualização Cadastral e Senha Obrigatória</h3>
+                <p class="text-xs text-slate-400 mt-1">Para sua segurança, defina uma nova senha e preencha seus dados cadastrais.</p>
+            </div>
+
+            <form onsubmit="saveFirstAccess(event)" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Nova Senha</label>
+                        <input type="password" id="fa-nova-senha" placeholder="Mínimo 6 dígitos" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">E-mail de Contato</label>
+                        <input type="email" id="fa-email" placeholder="seu@email.com" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Telefone / WhatsApp</label>
+                        <input type="text" id="fa-tel" placeholder="(18) 99999-9999" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">CEP (Busca ViaCEP)</label>
+                        <input type="text" id="fa-cep" onblur="buscarCepPrimeiroAcesso(this.value)" placeholder="00000-000" maxlength="9" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Endereço Residencial</label>
+                    <input type="text" id="fa-endereco" placeholder="Preenchimento automático via CEP ou manual" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500 transition-all duration-300">
+                </div>
+
+                <button type="submit" class="w-full bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 hover:from-agrGreen-500 hover:to-agrGreen-600 text-white font-semibold py-3 rounded-xl transition-all duration-300 text-sm shadow-lg shadow-agrGreen-600/30">Salvar e Acessar o Sistema</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= APLICAÇÃO PRINCIPAL ================= -->
+    <div id="app-container" class="hidden flex flex-col min-h-screen">
+        
+        <!-- HEADER -->
+        <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 transition-all duration-300">
+            <div class="max-w-7xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div class="flex items-center space-x-3 w-full sm:w-auto justify-between sm:justify-start">
+                    <div class="flex items-center space-x-3">
+                        <div class="bg-gradient-to-br from-agrGreen-500 to-agrGreen-700 text-white p-2.5 rounded-xl shadow-lg shadow-agrGreen-600/30">
+                            <i class="fa-solid fa-seedling text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-bold text-white flex items-center space-x-1.5">
+                                <span>Meu RH</span><span class="text-xs text-agrGreen-400 font-semibold">• Agrícola Fp</span>
+                            </h2>
+                            <span id="user-badge" class="text-[10px] bg-agrGreen-500/10 text-agrGreen-400 px-2 py-0.5 rounded font-medium border border-agrGreen-500/25">Perfil: Colaborador</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-2 overflow-x-auto w-full sm:w-auto py-1 scrollbar-thin">
+                    <button onclick="switchTab('dashboard')" id="nav-dashboard" class="px-3 py-2 text-xs font-medium rounded-lg bg-agrGreen-600 text-white transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap shadow-md shadow-agrGreen-600/20">
+                        <i class="fa-solid fa-house"></i><span>Início</span>
+                    </button>
+                    <button onclick="switchTab('holerites')" id="nav-holerites" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap">
+                        <i class="fa-solid fa-file-lines"></i><span>Meus Holerites</span>
+                    </button>
+                    <button onclick="switchTab('financeiro')" id="nav-financeiro" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap">
+                        <i class="fa-solid fa-chart-line"></i><span>Evolução</span>
+                    </button>
+                    <button onclick="switchTab('atestados')" id="nav-atestados" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap">
+                        <i class="fa-solid fa-notes-medical"></i><span>Atestados</span>
+                    </button>
+                    <button onclick="switchTab('cadastro')" id="nav-cadastro" class="px-3 py-2 text-xs font-medium rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap">
+                        <i class="fa-solid fa-user-pen"></i><span>Meu Cadastro</span>
+                    </button>
+                    <!-- Painéis Exclusivos RH / Admin -->
+                    <button onclick="switchTab('admin-lote')" id="nav-admin-lote" class="hidden px-3 py-2 text-xs font-medium rounded-lg text-emerald-300 hover:bg-slate-800 transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap border border-agrGreen-600/40">
+                        <i class="fa-solid fa-file-arrow-up"></i><span>RH: Lote Excel</span>
+                    </button>
+                    <button onclick="switchTab('admin-colaboradores')" id="nav-admin-colaboradores" class="hidden px-3 py-2 text-xs font-medium rounded-lg text-emerald-300 hover:bg-slate-800 transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap border border-agrGreen-600/40">
+                        <i class="fa-solid fa-users-gear"></i><span>RH: Colaboradores</span>
+                    </button>
+                    <button onclick="switchTab('admin-avisos')" id="nav-admin-avisos" class="hidden px-3 py-2 text-xs font-medium rounded-lg text-amber-300 hover:bg-slate-800 transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap border border-amber-600/40">
+                        <i class="fa-solid fa-bullhorn"></i><span>RH: Avisos</span>
+                    </button>
+                    <button onclick="handleLogout()" class="px-3 py-2 text-xs font-medium rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all duration-300 flex items-center space-x-1.5 whitespace-nowrap">
+                        <i class="fa-solid fa-right-from-bracket"></i><span>Sair</span>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- CONTEÚDO DAS ABAS -->
+        <main class="flex-grow max-w-7xl w-full mx-auto px-4 py-6 space-y-6">
+
+            <!-- 1. DASHBOARD -->
+            <section id="tab-dashboard" class="space-y-6">
+                <div id="banner-campanha-mes" class="bg-gradient-to-r from-agrGreen-950 via-slate-900 to-slate-900 border border-agrGreen-600/30 rounded-3xl p-6 relative overflow-hidden shadow-2xl">
+                    <div class="absolute right-0 top-0 translate-x-4 -translate-y-4 w-48 h-48 bg-agrGreen-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                    <div class="flex items-center space-x-3 mb-2 relative z-10">
+                        <span id="campanha-tag" class="bg-agrGreen-600 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">Campanha do Mês</span>
+                        <span class="text-xs text-agrGreen-400 font-medium">Teodoro Sampaio - SP</span>
+                    </div>
+                    <h3 id="campanha-frase" class="text-xl font-bold text-white mb-1 relative z-10">Carregando conscientização do mês...</h3>
+                    <p id="campanha-mensagem" class="text-sm text-slate-300 max-w-3xl relative z-10"></p>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 glass-card rounded-3xl p-6 space-y-4 transition-all duration-300">
+                        <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                            <i class="fa-solid fa-bullhorn text-agrGreen-400"></i><span>Mural de Avisos Agrícola Fp</span>
+                        </h3>
+                        <div id="mural-avisos-lista" class="space-y-3"></div>
+                    </div>
+
+                    <div class="glass-card rounded-3xl p-6 space-y-4 flex flex-col justify-between transition-all duration-300">
+                        <div>
+                            <h3 class="text-base font-bold text-white mb-4 flex items-center space-x-2">
+                                <i class="fa-solid fa-id-badge text-agrGreen-400"></i><span>Perfil do Colaborador</span>
+                            </h3>
+                            <div class="space-y-3 text-sm">
+                                <div class="flex justify-between border-b border-slate-800 pb-2">
+                                    <span class="text-slate-400">Cargo:</span>
+                                    <span class="font-medium text-white" id="info-cargo">Tratorista I</span>
+                                </div>
+                                <div class="flex justify-between border-b border-slate-800 pb-2">
+                                    <span class="text-slate-400">Local:</span>
+                                    <span class="font-medium text-white" id="info-local">Plantio</span>
+                                </div>
+                            </div>
+                        </div>
+                        <button onclick="switchTab('holerites')" class="w-full bg-slate-800/80 hover:bg-slate-700 text-white text-xs font-semibold py-3 rounded-xl transition-all duration-300 border border-slate-700 mt-4 shadow-md">Ver Meus Holerites</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 2. HOLERITES -->
+            <section id="tab-holerites" class="hidden grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div class="lg:col-span-4 glass-card rounded-3xl p-6 space-y-4 no-print transition-all duration-300">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-file-invoice-dollar text-agrGreen-400"></i><span>Seus Demonstrativos</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Selecione o recibo processado e distribuído pelo RH:</p>
+                    
+                    <div id="lista-holerites-colaborador" class="space-y-2">
+                        <button class="w-full text-left bg-agrGreen-500/10 border border-agrGreen-500/30 p-3 rounded-xl text-sm font-medium text-agrGreen-300 hover:bg-agrGreen-500/20 transition-all duration-300 flex justify-between items-center shadow-sm">
+                            <span>Agosto / 2026 (Oficial)</span><i class="fa-solid fa-chevron-right text-xs"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-8 bg-white text-slate-800 rounded-3xl p-4 sm:p-8 shadow-2xl overflow-x-auto" id="printable-area">
+                    <div class="border-2 border-slate-800 p-4 sm:p-6 rounded-xl min-w-[650px]">
+                        <div class="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-4">
+                            <div>
+                                <h2 class="text-xl font-black uppercase text-slate-900">Agrícola Fp S.A.</h2>
+                                <p class="text-xs text-slate-600">Teodoro Sampaio - SP</p>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded uppercase">Recibo de Pagto.</span>
+                            </div>
+                        </div>
+
+                        <div id="holerite-conteudo-visual" class="space-y-4">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 border border-slate-400 p-3 rounded text-xs bg-slate-50">
+                                <div><span class="block text-slate-500 font-bold">COLABORADOR</span><span class="font-semibold text-slate-900" id="h-colab-nome">Colaborador</span></div>
+                                <div><span class="block text-slate-500 font-bold">CARGO</span><span class="font-semibold text-slate-900" id="h-colab-cargo">Operador</span></div>
+                                <div><span class="block text-slate-500 font-bold">LOCAL</span><span class="font-semibold text-slate-900">Campo</span></div>
+                                <div><span class="block text-slate-500 font-bold">ADMISSÃO</span><span class="font-semibold text-slate-900">01/01/2026</span></div>
+                            </div>
+
+                            <table class="w-full text-xs border border-slate-400 mb-4">
+                                <thead>
+                                    <tr class="bg-slate-200 border-b border-slate-400 text-left">
+                                        <th class="p-2 border-r border-slate-400 w-16">Cód</th>
+                                        <th class="p-2 border-r border-slate-400">Descrição do Evento</th>
+                                        <th class="p-2 border-r border-slate-400 w-20 text-center">Quant/%</th>
+                                        <th class="p-2 border-r border-slate-400 w-24 text-right">Vencimentos</th>
+                                        <th class="p-2 w-24 text-right">Descontos</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-300">
+                                    <tr>
+                                        <td class="p-2 border-r border-slate-300">8781</td>
+                                        <td class="p-2 border-r border-slate-300">Dias Normais</td>
+                                        <td class="p-2 border-r border-slate-300 text-center">30,00 DIAS</td>
+                                        <td class="p-2 border-r border-slate-300 text-right">R$ 2.500,00</td>
+                                        <td class="p-2 text-right">-</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2 border-r border-slate-300">0998</td>
+                                        <td class="p-2 border-r border-slate-300">I.N.S.S.</td>
+                                        <td class="p-2 border-r border-slate-300 text-center">9,00 VALOR</td>
+                                        <td class="p-2 border-r border-slate-300 text-right">-</td>
+                                        <td class="p-2 text-right">R$ 200,00</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 border border-slate-400 p-3 text-xs mb-4 bg-slate-50 font-semibold">
+                                <div>Total Vencimentos: <span class="font-bold text-slate-900">R$ 2.500,00</span></div>
+                                <div>Total Descontos: <span class="font-bold text-rose-600">R$ 200,00</span></div>
+                                <div class="sm:text-right">Líquido: <span class="font-bold text-agrGreen-700 text-sm">R$ 2.300,00</span></div>
+                            </div>
+                        </div>
+
+                        <div class="mt-6 flex justify-end no-print">
+                            <button onclick="window.print()" class="bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 hover:from-agrGreen-500 hover:to-agrGreen-600 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center space-x-2 shadow-lg shadow-agrGreen-600/30">
+                                <i class="fa-solid fa-download"></i><span>Baixar PDF Individual</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. EVOLUÇÃO FINANCEIRA -->
+            <section id="tab-financeiro" class="hidden glass-card rounded-3xl p-6 space-y-6 transition-all duration-300">
+                <div class="border-b border-slate-800 pb-4">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-line text-agrGreen-400"></i><span>Evolução Salarial & Benefícios</span>
+                    </h3>
+                    <p class="text-xs text-slate-400">Histórico de rendimentos líquidos.</p>
+                </div>
+                <div class="h-72 relative">
+                    <canvas id="graficoEvolucao"></canvas>
+                </div>
+            </section>
+
+            <!-- 4. ATESTADOS -->
+            <section id="tab-atestados" class="hidden grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="glass-card rounded-3xl p-6 space-y-4 transition-all duration-300">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-notes-medical text-agrGreen-400"></i><span>Envio de Atestado Médico</span>
+                    </h3>
+                    <form onsubmit="enviarAtestado(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Data do Afastamento</label>
+                            <input type="date" id="atest-data" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Quantidade de Dias</label>
+                            <input type="number" id="atest-dias" placeholder="Ex: 2" min="1" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Arquivo (PDF ou Imagem)</label>
+                            <input type="file" id="atest-arquivo" accept=".pdf,image/*" required class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-agrGreen-500/10 file:text-agrGreen-400">
+                        </div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 text-white font-semibold py-3 rounded-xl text-sm shadow-lg shadow-agrGreen-600/30">Enviar Atestado</button>
+                    </form>
+                </div>
+                <div class="glass-card rounded-3xl p-6 space-y-4 transition-all duration-300">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-agrGreen-400"></i><span>Histórico de Envios</span>
+                    </h3>
+                    <div id="lista-atestados-enviados" class="space-y-3">
+                        <div class="bg-slate-900/60 border border-slate-800 p-3 rounded-xl text-xs space-y-1">
+                            <div class="flex justify-between font-semibold text-white"><span>10/08/2026 - 5 Dias</span><span class="text-emerald-400">Aprovado</span></div>
+                            <p class="text-slate-400">CID J00</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 5. MEU CADASTRO -->
+            <section id="tab-cadastro" class="hidden glass-card rounded-3xl p-6 space-y-6 max-w-3xl mx-auto transition-all duration-300">
+                <div class="border-b border-slate-800 pb-4">
+                    <h3 class="text-base font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-user-pen text-agrGreen-400"></i><span>Atualização Cadastral</span>
+                    </h3>
+                </div>
+                <form onsubmit="salvarCadastro(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">E-mail</label>
+                            <input type="email" id="cad-email" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Telefone / WhatsApp</label>
+                            <input type="text" id="cad-tel" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Endereço Completo</label>
+                        <input type="text" id="cad-endereco" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                    </div>
+                    <button type="submit" class="bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-agrGreen-600/30">Salvar Alterações</button>
+                </form>
+            </section>
+
+            <!-- 6. PAINEL RH: LOTE EXCEL -->
+            <section id="tab-admin-lote" class="hidden glass-card rounded-3xl p-6 space-y-6 transition-all duration-300">
+                <div class="border-b border-slate-800 pb-4">
+                    <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-500/25">Módulo Administrativo</span>
+                    <h3 class="text-lg font-bold text-white mt-2">Importação de Colaboradores via Excel (Lote)</h3>
+                    <p class="text-xs text-slate-400 mt-1">Envie a planilha em Excel contendo colunas: <strong>CPF</strong>, <strong>Colaborador</strong> e <strong>Função</strong>.</p>
+                </div>
+                <div class="space-y-4">
+                    <input type="file" id="excel-lote-input" accept=".xlsx, .xls, .csv" class="w-full text-xs text-slate-400 file:mr-4 file:py-3 file:px-6 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-agrGreen-500/10 file:text-agrGreen-400 hover:file:bg-agrGreen-500/25 transition-all duration-300 border border-slate-800 rounded-xl p-2 bg-slate-900/65">
+                    <button onclick="processarPlanilhaExcel()" class="bg-gradient-to-r from-agrGreen-600 to-agrGreen-700 hover:from-agrGreen-500 hover:to-agrGreen-600 text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 text-sm shadow-lg shadow-agrGreen-600/30 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-excel"></i><span>Importar Colaboradores do Excel</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- 7. PAINEL RH: GESTÃO DE COLABORADORES E RESET DE SENHA -->
+            <section id="tab-admin-colaboradores" class="hidden glass-card rounded-3xl p-6 space-y-6 transition-all duration-300">
+                <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <span class="bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-emerald-500/25">Controle de Acessos</span>
+                        <h3 class="text-lg font-bold text-white mt-2">Gestão de Colaboradores & Reset de Senha</h3>
+                        <p class="text-xs text-slate-400">Visualize todos os funcionários cadastrados, pesquise e redefina senhas se necessário.</p>
+                    </div>
+                    <input type="text" id="filtro-colab" oninput="renderizarTabelaColaboradores()" placeholder="Pesquisar por nome ou CPF..." class="bg-slate-900 border border-slate-800 rounded-xl px-4 py-2 text-xs text-white focus:outline-none focus:border-agrGreen-500 w-full sm:w-64">
+                </div>
+                <div class="overflow-x-auto max-h-[500px] rounded-xl border border-slate-800">
+                    <table class="w-full text-xs text-left text-slate-300">
+                        <thead class="bg-slate-900 text-slate-400 uppercase sticky top-0 border-b border-slate-800">
+                            <tr>
+                                <th class="p-3">CPF</th>
+                                <th class="p-3">Nome Completo</th>
+                                <th class="p-3">Função / Cargo</th>
+                                <th class="p-3 text-center">Perfil</th>
+                                <th class="p-3 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-colaboradores-corpo" class="divide-y divide-slate-800/60 bg-slate-900/40">
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 8. PAINEL RH: AVISOS -->
+            <section id="tab-admin-avisos" class="hidden glass-card rounded-3xl p-6 space-y-6 transition-all duration-300">
+                <div class="border-b border-slate-800 pb-4">
+                    <span class="bg-amber-500/10 text-amber-400 text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-amber-500/25">Comunicação Interna</span>
+                    <h3 class="text-lg font-bold text-white mt-2">Publicar Comunicado ou Campanha</h3>
+                </div>
+                <form onsubmit="publicarAviso(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Título do Aviso</label>
+                        <input type="text" id="adm-aviso-titulo" placeholder="Ex: Manutenção na Frota" required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">Mensagem</label>
+                        <textarea id="adm-aviso-texto" rows="3" placeholder="Detalhes do comunicado..." required class="w-full bg-slate-900/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500"></textarea>
+                    </div>
+                    <button type="submit" class="bg-gradient-to-r from-amber-600 to-amber-700 text-white font-semibold px-6 py-2.5 rounded-xl text-sm shadow-lg shadow-amber-600/30">Publicar no Mural</button>
+                </form>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL DE RESET DE SENHA (PELO RH) -->
+    <div id="modal-reset-senha" class="hidden fixed inset-0 glass-modal z-50 flex items-center justify-center p-4">
+        <div class="glass-card p-6 rounded-3xl max-w-sm w-full space-y-4 border-emerald-500/30">
+            <h3 class="text-base font-bold text-white">Redefinir Senha do Colaborador</h3>
+            <p class="text-xs text-slate-400" id="reset-info-colab">Funcionário:</p>
+            <input type="password" id="nova-senha-admin" placeholder="Nova senha temporária" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-agrGreen-500">
+            <div class="flex space-x-2 pt-2">
+                <button onclick="salvarNovaSenhaAdmin()" class="flex-1 bg-agrGreen-600 hover:bg-agrGreen-700 text-white font-semibold py-2.5 rounded-xl text-xs transition">Salvar</button>
+                <button onclick="fecharModalReset()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-semibold py-2.5 rounded-xl text-xs transition">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCRIPT DA APLICAÇÃO -->
+    <script>
+        // Máscara automática de CPF
+        function mascaraCPF(input) {
+            let v = input.value.replace(/\D/g, "");
+            if (v.length > 11) v = v.slice(0, 11);
+            if (v.length > 9) {
+                v = v.replace(/^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4");
+            } else if (v.length > 6) {
+                v = v.replace(/^(\d{3})(\d{3})(\d{0,3})$/, "$1.$2.$3");
+            } else if (v.length > 3) {
+                v = v.replace(/^(\d{3})(\d{0,3})$/, "$1.$2");
+            }
+            input.value = v;
+        }
+
+        // Banco de dados padrão atualizado com os administradores solicitados
+        const DB_DEFAULT = {
+            usuarioLogado: null,
+            usuarios: [
+                { cpf: "421.124.558-93", senha: "123", cargo: "Administrador do Sistema", local: "Administrativo", nome: "Alan Kaique da Silva Pierina", email: "alan@agricolafp.com", tel: "(18) 99999-0000", endereco: "Escritório Central - Teodoro Sampaio", primeiroAcesso: false, admin: true },
+                { cpf: "345.650.498-56", senha: "123", cargo: "Operador de RH", local: "Administrativo", nome: "Operador RH", email: "rh@agricolafp.com", tel: "(18) 3282-0000", endereco: "Escritório Central - Teodoro Sampaio", primeiroAcesso: false, admin: true }
+            ],
+            avisos: [
+                { id: 1, titulo: "Segurança na Operação", texto: "Utilize sempre os EPIs obrigatórios." }
+            ],
+            campanha: {
+                tag: "Setembro Amarelo & Prevenção",
+                frase: "Cuidar da mente é cultivar um futuro mais forte.",
+                mensagem: "A Agrícola Fp apoia o bem-estar emocional de todos os seus colaboradores."
+            }
+        };
+
+        let db = JSON.parse(localStorage.getItem('agricola_fp_db')) || DB_DEFAULT;
+        function salvarDb() { localStorage.setItem('agricola_fp_db', JSON.stringify(db)); }
+
+        // Abas
+        function switchTab(tabId) {
+            const tabs = ['dashboard', 'holerites', 'financeiro', 'atestados', 'cadastro', 'admin-lote', 'admin-colaboradores', 'admin-avisos'];
+            tabs.forEach(t => {
+                const el = document.getElementById('tab-' + t);
+                const btn = document.getElementById('nav-' + t);
+                if (el) el.classList.add('hidden');
+                if (btn) {
+                    btn.classList.remove('bg-agrGreen-600', 'text-white', 'shadow-md', 'shadow-agrGreen-600/20');
+                    btn.classList.add('text-slate-300');
+                }
+            });
+
+            const activeEl = document.getElementById('tab-' + tabId);
+            const activeBtn = document.getElementById('nav-' + tabId);
+            if (activeEl) activeEl.classList.remove('hidden');
+            if (activeBtn) {
+                activeBtn.classList.add('bg-agrGreen-600', 'text-white', 'shadow-md', 'shadow-agrGreen-600/20');
+                activeBtn.classList.remove('text-slate-300');
+            }
+
+            if (tabId === 'financeiro') renderizarGraficoEvolucao();
+            if (tabId === 'dashboard') carregarDashboard();
+            if (tabId === 'admin-colaboradores') renderizarTabelaColaboradores();
+        }
+
+        // Login
+        function handleLogin(e) {
+            e.preventDefault();
+            const cpf = document.getElementById('login-cpf').value.trim();
+            const senha = document.getElementById('login-senha').value.trim();
+
+            const user = db.usuarios.find(u => u.cpf === cpf && u.senha === senha);
+            if (!user) {
+                alert('CPF ou senha inválidos.');
+                return;
+            }
+
+            db.usuarioLogado = user;
+            salvarDb();
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            if (user.primeiroAcesso) {
+                document.getElementById('first-access-modal').classList.remove('hidden');
+            } else {
+                iniciarAplicacao();
+            }
+        }
+
+        function saveFirstAccess(e) {
+            e.preventDefault();
+            db.usuarioLogado.senha = document.getElementById('fa-nova-senha').value;
+            db.usuarioLogado.email = document.getElementById('fa-email').value;
+            db.usuarioLogado.tel = document.getElementById('fa-tel').value;
+            db.usuarioLogado.endereco = document.getElementById('fa-endereco').value;
+            db.usuarioLogado.primeiroAcesso = false;
+
+            const idx = db.usuarios.findIndex(u => u.cpf === db.usuarioLogado.cpf);
+            if (idx !== -1) db.usuarios[idx] = db.usuarioLogado;
+            salvarDb();
+
+            document.getElementById('first-access-modal').classList.add('hidden');
+            iniciarAplicacao();
+        }
+
+        function iniciarAplicacao() {
+            document.getElementById('app-container').classList.remove('hidden');
+            const user = db.usuarioLogado;
+
+            document.getElementById('info-cargo').innerText = user.cargo;
+            document.getElementById('info-local').innerText = user.local || 'Geral';
+            document.getElementById('h-colab-nome').innerText = user.nome;
+            document.getElementById('h-colab-cargo').innerText = user.cargo;
+
+            const badge = document.getElementById('user-badge');
+            if (user.admin) {
+                badge.innerText = "Perfil: Administração RH";
+                document.getElementById('nav-admin-lote').classList.remove('hidden');
+                document.getElementById('nav-admin-colaboradores').classList.remove('hidden');
+                document.getElementById('nav-admin-avisos').classList.remove('hidden');
+            } else {
+                badge.innerText = "Perfil: Colaborador";
+            }
+
+            document.getElementById('cad-email').value = user.email || '';
+            document.getElementById('cad-tel').value = user.tel || '';
+            document.getElementById('cad-endereco').value = user.endereco || '';
+
+            carregarDashboard();
+        }
+
+        function handleLogout() {
+            db.usuarioLogado = null;
+            salvarDb();
+            location.reload();
+        }
+
+        function carregarDashboard() {
+            const camp = db.campanha;
+            document.getElementById('campanha-tag').innerText = camp.tag;
+            document.getElementById('campanha-frase').innerText = camp.frase;
+            document.getElementById('campanha-mensagem').innerText = camp.mensagem;
+
+            const lista = document.getElementById('mural-avisos-lista');
+            lista.innerHTML = db.avisos.map(a => `
+                <div class="bg-slate-900/60 border border-slate-800/80 p-4 rounded-2xl space-y-1 transition-all duration-300 hover:border-agrGreen-500/30">
+                    <h4 class="font-bold text-white text-sm">${a.titulo}</h4>
+                    <p class="text-xs text-slate-300">${a.texto}</p>
+                </div>
+            `).join('');
+        }
+
+        // Importação de Planilha Excel (Lote)
+        function processarPlanilhaExcel() {
+            const fileInput = document.getElementById('excel-lote-input');
+            if (!fileInput.files.length) {
+                alert('Selecione um arquivo Excel (.xlsx).');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet);
+
+                    let novosAdicionados = 0;
+                    rows.forEach(row => {
+                        let cpf = String(row['CPF'] || '').trim();
+                        let nome = String(row['Colaborador'] || row['Nome'] || '').trim();
+                        let funcao = String(row['Função'] || row['Cargo'] || 'Operador').trim();
+
+                        if (cpf && nome) {
+                            // Verifica se já existe
+                            let existe = db.usuarios.find(u => u.cpf === cpf);
+                            if (!existe) {
+                                db.usuarios.push({
+                                    cpf: cpf,
+                                    senha: "123", // Senha padrão inicial
+                                    cargo: funcao,
+                                    local: "Campo",
+                                    nome: nome,
+                                    email: "",
+                                    tel: "",
+                                    endereco: "",
+                                    primeiroAcesso: true,
+                                    admin: false
+                                });
+                                novosAdicionados++;
+                            }
+                        }
+                    });
+
+                    salvarDb();
+                    alert(`Sucesso! ${novosAdicionados} novos colaboradores importados da planilha.`);
+                    fileInput.value = '';
+                    renderizarTabelaColaboradores();
+                } catch (err) {
+                    console.error(err);
+                    alert('Erro ao processar a planilha. Verifique o formato.');
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Tabela de Gestão de Colaboradores (RH)
+        function renderizarTabelaColaboradores() {
+            const filtro = document.getElementById('filtro-colab').value.toLowerCase();
+            const tbody = document.getElementById('tabela-colaboradores-corpo');
+            
+            const filtrados = db.usuarios.filter(u => 
+                u.nome.toLowerCase().includes(filtro) || u.cpf.includes(filtro)
+            );
+
+            tbody.innerHTML = filtrados.map(u => `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="p-3 font-mono text-agrGreen-400">${u.cpf}</td>
+                    <td class="p-3 font-semibold text-white">${u.nome}</td>
+                    <td class="p-3 text-slate-300">${u.cargo}</td>
+                    <td class="p-3 text-center">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-bold ${u.admin ? 'bg-amber-500/10 text-amber-400 border border-amber-500/25' : 'bg-slate-800 text-slate-300'}">
+                            ${u.admin ? 'Administrador' : 'Colaborador'}
+                        </span>
+                    </td>
+                    <td class="p-3 text-center space-x-2">
+                        <button onclick="abrirModalReset('${u.cpf}')" class="bg-agrGreen-600/20 hover:bg-agrGreen-600/40 text-agrGreen-300 px-3 py-1.5 rounded-lg text-xs transition border border-agrGreen-500/30">
+                            <i class="fa-solid fa-key"></i> Redefinir Senha
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        let cpfEmReset = null;
+        function abrirModalReset(cpf) {
+            cpfEmReset = cpf;
+            const u = db.usuarios.find(item => item.cpf === cpf);
+            document.getElementById('reset-info-colab').innerText = `Funcionário: ${u.nome} (${u.cpf})`;
+            document.getElementById('nova-senha-admin').value = '';
+            document.getElementById('modal-reset-senha').classList.remove('hidden');
+        }
+
+        function fecharModalReset() {
+            document.getElementById('modal-reset-senha').classList.add('hidden');
+            cpfEmReset = null;
+        }
+
+        function salvarNovaSenhaAdmin() {
+            const novaSenha = document.getElementById('nova-senha-admin').value.trim();
+            if (!novaSenha) {
+                alert('Digite uma nova senha válida.');
+                return;
+            }
+
+            const u = db.usuarios.find(item => item.cpf === cpfEmReset);
+            if (u) {
+                u.senha = novaSenha;
+                salvarDb();
+                alert(`Senha de ${u.nome} redefinida com sucesso!`);
+                fecharModalReset();
+            }
+        }
+
+        function publicarAviso(e) {
+            e.preventDefault();
+            const titulo = document.getElementById('adm-aviso-titulo').value;
+            const texto = document.getElementById('adm-aviso-texto').value;
+            db.avisos.unshift({ id: Date.now(), titulo, texto });
+            salvarDb();
+            alert('Aviso publicado com sucesso!');
+            e.target.reset();
+            carregarDashboard();
+        }
+
+        // ViaCEP
+        async function buscarCepPrimeiroAcesso(cep) {
+            cep = cep.replace(/\D/g, '');
+            if (cep.length !== 8) return;
+            try {
+                const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+                const data = await res.json();
+                if (!data.erro) {
+                    document.getElementById('fa-endereco').value = `${data.logradouro}, ${data.bairro}, ${data.localidade} - ${data.uf}`;
+                }
+            } catch (err) { console.error(err); }
+        }
+
+        let meuGrafico = null;
+        function renderizarGraficoEvolucao() {
+            const ctx = document.getElementById('graficoEvolucao').getContext('2d');
+            if (meuGrafico) meuGrafico.destroy();
+            meuGrafico = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['Maio', 'Junho', 'Julho', 'Agosto'],
+                    datasets: [{
+                        label: 'Líquido Recebido (R$)',
+                        data: [2210.50, 2350.00, 2290.80, 2366.12],
+                        borderColor: '#22c55e',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { labels: { color: '#cbd5e1' } } },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            });
+        }
+
+        function salvarCadastro(e) {
+            e.preventDefault();
+            db.usuarioLogado.email = document.getElementById('cad-email').value;
+            db.usuarioLogado.tel = document.getElementById('cad-tel').value;
+            db.usuarioLogado.endereco = document.getElementById('cad-endereco').value;
+            salvarDb();
+            alert('Cadastro atualizado com sucesso!');
+        }
+
+        function enviarAtestado(e) {
+            e.preventDefault();
+            alert('Atestado enviado com sucesso para análise do RH!');
+            e.target.reset();
+        }
+
+        window.onload = function() {
+            if (db.usuarioLogado) {
+                document.getElementById('auth-screen').classList.add('hidden');
+                iniciarAplicacao();
+            }
+        };
+    </script>
+</body>
+</html>
